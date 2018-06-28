@@ -33,7 +33,11 @@ import com.example.yulon.newblecommunicate.service.GPSService;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 
+import org.w3c.dom.Text;
+
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 
 public class BleDeviceControlActivity extends AppCompatActivity {
 
@@ -41,8 +45,10 @@ public class BleDeviceControlActivity extends AppCompatActivity {
 
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
-    private static final byte[] ENABLE_SENSOR = {0x45};
-    private static final byte[] STOP_ENABLE_SENSOR = {0x44};
+    private static final byte[] START_ENABLE_SENSOR = {0x45, 0x53};
+    private static final byte[] STOP_ENABLE_SENSOR = {0x45, 0x50};
+    private static final byte[] RESUME_ENABLE_SENSOR = {0x45, 0x52};
+    private static final byte[] OVER_ENABLE_SENSOR = {0x45, 0x54};
 
     /**
      * Code used in requesting runtime permissions.
@@ -58,12 +64,13 @@ public class BleDeviceControlActivity extends AppCompatActivity {
     private TextView txtDeviceName;
     private TextView txtDeviceAdrress;
     private TextView txtDeviceState;
+    private TextView txtDataSteps;
     private boolean bConnected = false;
 
-    LocalBroadcastManager mLocalBroadcastManager;
-    BroadcastReceiver mReceiver;
-    IntentFilter filter;
-    Button testBtn, testBtn2;
+    LocalBroadcastManager mLocalBroadcastManager, Ble_mLocalBroadcastManager;
+    BroadcastReceiver mReceiver, Ble_mReceiver;
+    IntentFilter filter, BleService_filter;
+    Button btn_Start, btn_Stop, btn_Resume, btn_Over;
 
     private FirebaseService mFirebaseService = null;
     private BleService mBleService = null;
@@ -113,7 +120,9 @@ public class BleDeviceControlActivity extends AppCompatActivity {
             }else if(BleService.ACTION_DATA_AVAILABLE.equals(action)){
 
             }
+
         }
+
     };
 
     @Override
@@ -132,12 +141,12 @@ public class BleDeviceControlActivity extends AppCompatActivity {
         Intent it = new Intent(this, BleService.class);
         bindService(it, mBleServiceConnection, BIND_AUTO_CREATE); //綁定Service
 
-//        mReceiver = new BroadcastReceiver() {
-//            @Override
-//            public void onReceive(Context context, Intent intent) {
-//                String latitude = intent.getStringExtra(GPSService.EXTRA_LATITUDE);
-//                String longitude = intent.getStringExtra(GPSService.EXTRA_LONGITUDE);
-//                String lastTime = intent.getStringExtra(GPSService.EXTRA_CURTIME);
+        mReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String latitude = intent.getStringExtra(GPSService.EXTRA_LATITUDE);
+                String longitude = intent.getStringExtra(GPSService.EXTRA_LONGITUDE);
+                String lastTime = intent.getStringExtra(GPSService.EXTRA_CURTIME);
 //
 //                if (latitude != null && longitude != null) {
 //                    Toast.makeText(BleDeviceControlActivity.this, getString(R.string.msg_location_service_started) + "\n Latitude : " + latitude + "\n Longitude: " + longitude
@@ -147,9 +156,56 @@ public class BleDeviceControlActivity extends AppCompatActivity {
 //                        mFirebaseService.Fire_lastTimeData(lastTime);
 //                    }
 //                }
+
+            }
+        };
+
+        mLocalBroadcastManager.registerReceiver(mReceiver, filter);
+
+        Ble_mLocalBroadcastManager = LocalBroadcastManager.getInstance(this);
+        BleService_filter = new IntentFilter();
+        BleService_filter.addAction(BleService.ACTION_BLESERVICE_BROADCAST);
+
+        Ble_mReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd");
+                //取得現在時間
+                Date dt=new Date();
+
+                String str_Steps = intent.getStringExtra(BleService.EXTRA_STEPS);
+                Log.d("str_Steps: ", str_Steps);
+                if(mFirebaseService != null && mDeviceAddress != null){
+                    String str_DataSteps = mFirebaseService.Firebase_GetStepsData(mDeviceAddress,  sdf.format(dt));
+                    Log.d("str_Steps: ", mDeviceAddress);
+                    Log.d("str_Steps: ",  sdf.format(dt));
+
+                    if(str_Steps != null && str_DataSteps != null){
+                        mFirebaseService.Fire_deviceStepsData(mDeviceAddress, sdf.format(dt), String.valueOf(Integer.parseInt(str_Steps) + Integer.parseInt(str_DataSteps)));
+                        txtDataSteps.setText(String.valueOf(Integer.parseInt(str_Steps) + Integer.parseInt(str_DataSteps)));
+//                        txtDataSteps.setText(str_DataSteps);
+
+                    }
+                }
+            }
+        };
+
+        Ble_mLocalBroadcastManager.registerReceiver(Ble_mReceiver, BleService_filter);
+
+//        Bundle bundle = this.getIntent().getExtras();
+//
+//        SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd");
+//        //取得現在時間
+//        Date dt=new Date();
+//
+//        String str_Steps = bundle.getString("Steps");
+//        if(mFirebaseService != null && mDeviceAddress != null){
+//            if(str_Steps != null){
+//                mFirebaseService.Fire_deviceStepsData(mDeviceAddress, sdf.format(dt), str_Steps);
+//                Toast.makeText(BleDeviceControlActivity.this, getString(R.string.msg_location_service_started) + "\n Steps : " + str_Steps + "\n Time: " + sdf.format(dt), Toast.LENGTH_SHORT).show();
 //            }
-//        };
-//        mLocalBroadcastManager.registerReceiver(mReceiver, filter);
+//        }
+
     }
 
     @Override
@@ -267,20 +323,37 @@ public class BleDeviceControlActivity extends AppCompatActivity {
     private void initView(){
         txtDeviceAdrress = (TextView)findViewById(R.id.device_address);
         txtDeviceState = (TextView)findViewById(R.id.connection_state);
-        testBtn = (Button)findViewById(R.id.button2);
-        testBtn2 = (Button)findViewById(R.id.button3);
+        txtDataSteps = (TextView)findViewById(R.id.txt_steps);
+        btn_Start = (Button)findViewById(R.id.btn_startsport);
+        btn_Stop = (Button)findViewById(R.id.btn_stopsport);
+        btn_Resume = (Button)findViewById(R.id.btn_resumesport);
+        btn_Over = (Button)findViewById(R.id.btn_oversport);
 
-        testBtn.setOnClickListener(new View.OnClickListener() {
+        btn_Start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mBleService.wirteCharacteristic(mDeviceAddress, ENABLE_SENSOR);
+                mBleService.wirteCharacteristic(mDeviceAddress, START_ENABLE_SENSOR);
             }
         });
 
-        testBtn2.setOnClickListener(new View.OnClickListener() {
+        btn_Stop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mBleService.wirteCharacteristic(mDeviceAddress, STOP_ENABLE_SENSOR);
+            }
+        });
+
+        btn_Resume.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mBleService.wirteCharacteristic(mDeviceAddress, RESUME_ENABLE_SENSOR);
+            }
+        });
+
+        btn_Over.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mBleService.wirteCharacteristic(mDeviceAddress, OVER_ENABLE_SENSOR);
             }
         });
 
@@ -445,6 +518,7 @@ public class BleDeviceControlActivity extends AppCompatActivity {
 
     private static IntentFilter makeGattUpdateIntentFilter() {
         final IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(BleService.ACTION_BLESERVICE_BROADCAST);
         intentFilter.addAction(BleService.ACTION_GATT_CONNECTED);
         intentFilter.addAction(BleService.ACTION_GATT_DISCONNECTED);
         intentFilter.addAction(BleService.ACTION_GATT_SERVICES_DISCOVERED);

@@ -42,20 +42,55 @@
                 android:text="@string/disconnected"
                 android:textSize="18sp"/>
         </LinearLayout>
+        <LinearLayout android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="10dp">
+            <TextView android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/data_steps"
+                android:textSize="18sp"/>
+            <Space android:layout_width="5dp"
+                android:layout_height="wrap_content"/>
+            <TextView
+                android:id="@+id/txt_steps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/data_load"
+                android:textSize="18sp"
+                />
+        </LinearLayout>
+
 
         <Button
-            android:id="@+id/button2"
+            android:id="@+id/btn_startsport"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Receive Data"
+            android:text="@string/btn_startsport"
             tools:layout_editor_absoluteX="16dp"
             tools:layout_editor_absoluteY="130dp" />
 
         <Button
-            android:id="@+id/button3"
+            android:id="@+id/btn_stopsport"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Stop"
+            android:text="@string/btn_stopsport"
+            tools:layout_editor_absoluteX="95dp"
+            tools:layout_editor_absoluteY="158dp" />
+
+        <Button
+            android:id="@+id/btn_resumesport"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_resumesport"
+            tools:layout_editor_absoluteX="95dp"
+            tools:layout_editor_absoluteY="158dp" />
+
+        <Button
+            android:id="@+id/btn_oversport"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_oversport"
             tools:layout_editor_absoluteX="95dp"
             tools:layout_editor_absoluteY="158dp" />
 

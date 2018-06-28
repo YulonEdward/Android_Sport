@@ -15,9 +15,12 @@ import android.content.Intent;
 import android.net.sip.SipErrorCode;
 import android.os.Binder;
 import android.os.IBinder;
+import android.os.Message;
 import android.os.Messenger;
+import android.os.RemoteException;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.example.yulon.newblecommunicate.MainActivity;
@@ -50,12 +53,18 @@ public class BleService extends Service{
     public static BluetoothGattCharacteristic mBleGattCharacteristic;
     private int mConnectionState = STATE_DISCONNECTED;
 
+    public static final String ACTION_BLESERVICE_BROADCAST = GPSService.class.getName() + "BleServiceBroadcast";
+    public static final String EXTRA_STEPS = "extra_steps";
+
     private static final Queue<Object> sWriteQueue = new ConcurrentLinkedQueue<Object>();
     private static boolean sIsWriting = false;
 
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
+    static final int MSG_DEVICE_DATA = 8;
+
+    private static int i_OriginalSteps = 0;
 
     public final static String ACTION_GATT_CONNECTED =
             "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
@@ -109,14 +118,36 @@ public class BleService extends Service{
 //            Log.e("notify", "onCharacteristicChanged: "+ HexUtil.bytesToHexString(characteristic.getValue()));
             Log.e("notify", "onCharacteristicChanged: "+ characteristic.getUuid().toString());
 
-            for(int i = 0; i < characteristic.getValue().length; i++){
-                Log.d("byte轉十六進制字串符 - 1", String.valueOf(characteristic.getValue()[i]));
-            }
+//            for(int i = 0; i < characteristic.getValue().length; i++){
+//                Log.d("byte轉十六進制字串符 - 1", String.valueOf(characteristic.getValue()[i]));
+//            }
 
             if (characteristic.getUuid().equals(UUID_NOTIFY)) {
 
                 ParserUtils.parse(characteristic.getValue());
                 Log.d(TAG, "Characteristic getValue: " + ParserUtils.parse(characteristic.getValue()));
+//                Log.d(TAG, "走路步數：" + characteristic.getValue()[1] + characteristic.getValue()[2] + characteristic.getValue()[3]);
+
+                int iSteps_thousand = HexUtil.toInt(new byte[]{characteristic.getValue()[1]}) * 1000;
+                int iSteps_hundred =  HexUtil.toInt(new byte[]{characteristic.getValue()[2]}) * 100;
+
+                Log.d(TAG, "走路步數_千步：" + iSteps_thousand);
+                Log.d(TAG, "走路步數_百步：" + iSteps_hundred);
+                Log.d(TAG, "走路步數：" + HexUtil.toInt(new byte[]{characteristic.getValue()[3]}));
+
+                int itotal_Steps = iSteps_thousand + iSteps_hundred + HexUtil.toInt(new byte[]{characteristic.getValue()[3]});
+
+                if(i_OriginalSteps != itotal_Steps){
+                    sendMessageToUI(String.valueOf(itotal_Steps - i_OriginalSteps));
+                    Log.d(TAG, "走路步數變化：" + String.valueOf(itotal_Steps - i_OriginalSteps));
+                    i_OriginalSteps = itotal_Steps;
+                }else{
+                    sendMessageToUI("0");
+                    Log.d(TAG, "走路步數沒有變化" );
+                }
+
+//                sendMessageToUI(String.valueOf((int)(characteristic.getValue()[1] + characteristic.getValue()[2] + characteristic.getValue()[3])));
+
             }
             super.onCharacteristicChanged(gatt, characteristic);
         }
@@ -129,8 +160,6 @@ public class BleService extends Service{
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             Log.e("notify", "onDescriptorWrite: "+ HexUtil.bytesToHexString(characteristic.getValue()));
-//            sIsWriting = false;
-//            nextWrite();
             super.onCharacteristicWrite(gatt, characteristic, status);
         }
 
@@ -278,138 +307,6 @@ public class BleService extends Service{
             }
         }
 
-    }
-
-    private void setAutoReceiveData(BluetoothGatt gatt){
-        try{
-            BluetoothGattService linkLossService = gatt.getService(UUID_SERVICE);
-            BluetoothGattCharacteristic data = linkLossService.getCharacteristic(UUID_NOTIFY);
-            BluetoothGattDescriptor defaultDescriptor = data.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-            if(null != defaultDescriptor){
-                defaultDescriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                mGatt.writeDescriptor(defaultDescriptor);
-            }
-            mGatt.setCharacteristicNotification(data, true);
-        }catch (Exception e){
-            Log.e(TAG, "123123123");
-        }
-    }
-
-    private boolean enableNotification(boolean enable, BluetoothGattCharacteristic characteristic){
-        if(mGatt == null || characteristic == null){
-            return false;
-        }
-        if(!mGatt.setCharacteristicNotification(characteristic, enable)){
-            return false;
-        }
-        BluetoothGattDescriptor clientConfig = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-
-        if(clientConfig == null){
-            return false;
-        }
-
-        if(enable){
-            clientConfig.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-        }else{
-            clientConfig.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
-        }
-        return mGatt.writeDescriptor(clientConfig);
-    }
-
-    /**
-     * 開啟 Indication
-     */
-    private boolean enableIndication(boolean enable, BluetoothGattCharacteristic characteristic){
-        if(mGatt == null || characteristic == null){
-            return false;
-        }
-        if(!mGatt.setCharacteristicNotification(characteristic, enable)){
-            return false;
-        }
-        BluetoothGattDescriptor clientConfig = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-        if(clientConfig == null){
-            return false;
-        }
-
-        if(enable){
-            clientConfig.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
-        }else{
-            clientConfig.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
-        }
-        return mGatt.writeDescriptor(clientConfig);
-    }
-
-    /**
-     *  測試程式碼
-     */
-    public boolean enableNotification(BluetoothGatt gatt, UUID serviceUUID, UUID characteristicUUID){
-        boolean success = false;
-        BluetoothGattService service = gatt.getService(serviceUUID);
-        if(service != null){
-            BluetoothGattCharacteristic characteristic = findNotifyCharacteristic(service, characteristicUUID);
-            if(characteristic != null){
-                success = gatt.setCharacteristicNotification(characteristic, true);
-                if(success){
-                    for(BluetoothGattDescriptor dp : characteristic.getDescriptors()){
-                        if(dp != null){
-                            if((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0){
-                                dp.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                            }else if((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0){
-                                dp.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
-                            }
-                            gatt.writeDescriptor(dp);
-                        }
-                    }
-                }
-            }
-        }
-        return success;
-    }
-
-    private BluetoothGattCharacteristic findNotifyCharacteristic(BluetoothGattService service, UUID characteristicUUID){
-        BluetoothGattCharacteristic characteristic = null;
-        List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
-        for(BluetoothGattCharacteristic c : characteristics){
-            if((c.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0 && characteristicUUID.equals(c.getUuid())){
-                characteristic = c;
-                break;
-            }
-        }
-        if(characteristic != null){
-            return characteristic;
-        }
-        for(BluetoothGattCharacteristic c : characteristics){
-            if((c.getProperties() & BluetoothGattCharacteristic.PROPERTY_INDICATE) !=0 && characteristicUUID.equals(c.getUuid())){
-                characteristic = c;
-                break;
-            }
-        }
-        return characteristic;
-    }
-
-    private void enableNotificationOfCharacteristic(final boolean enable){
-        UUID ServiceUUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
-        UUID CharaUUID = UUID.fromString("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
-        if(!mGatt.equals(null)){
-            BluetoothGattService service = mGatt.getService(ServiceUUID);
-            if(service != null){
-                BluetoothGattCharacteristic chara = service.getCharacteristic(CharaUUID);
-                if(chara != null){
-                    boolean success = mGatt.setCharacteristicNotification(chara, enable);
-                    Log.e("success : ", "setCharactNotify: "+success);
-                    BluetoothGattDescriptor descriptor = chara.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-                    if(descriptor != null){
-                        if(enable){
-                            descriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
-                        }else{
-                            descriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
-                        }
-                        SystemClock.sleep(200);
-                        mGatt.writeDescriptor(descriptor);
-                    }
-                }
-            }
-        }
     }
 
     /**
@@ -604,6 +501,15 @@ public class BleService extends Service{
         } else {
             nextWrite();
         }
+    }
+
+    private void sendMessageToUI(String steps) {
+
+        Log.d(TAG, "BleService Sending info...");
+
+        Intent intent = new Intent(ACTION_BLESERVICE_BROADCAST);
+        intent.putExtra(EXTRA_STEPS, steps);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
     private static Integer shortUnsignedAtOffset(BluetoothGattCharacteristic characteristic, int offset) {

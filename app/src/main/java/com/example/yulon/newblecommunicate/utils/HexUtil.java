@@ -75,4 +75,15 @@ public class HexUtil {
         }
         return bytes;
     }
+
+    public static int toInt(byte[] bRefArr) {
+        int iOutcome = 0;
+        byte bLoop;
+
+        for (int i = 0; i < bRefArr.length; i++) {
+            bLoop = bRefArr[i];
+            iOutcome += (bLoop & 0xFF) << (8 * i);
+        }
+        return iOutcome;
+    }
 }

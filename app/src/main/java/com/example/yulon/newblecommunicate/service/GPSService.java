@@ -102,7 +102,8 @@ public class GPSService extends Service implements GoogleApiClient.ConnectionCal
         Log.d(TAG, "Location changed");
 
         //先行定義時間格式
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd kk:mm:ss");
+//        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd kk:mm:ss");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd");
         //取得現在時間
         Date dt=new Date();
 

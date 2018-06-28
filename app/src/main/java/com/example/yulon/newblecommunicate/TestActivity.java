@@ -83,7 +83,7 @@ public class TestActivity extends AppCompatActivity {
         mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
         mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
         mBleController = BleController.getInstance().initble(TestActivity.this);
-        testbtn = (Button)findViewById(R.id.button2);
+        testbtn = (Button)findViewById(R.id.btn_startsport);
 
         testbtn.setOnClickListener(new View.OnClickListener() {
             @Override
