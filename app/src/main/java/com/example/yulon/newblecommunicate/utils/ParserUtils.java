@@ -26,6 +26,7 @@ public class ParserUtils {
             if (j != data.length - 1)
                 out[j * 3 + 2] = '-';
         }
-        return "(0x) " + new String(out);
+//        return "(0x) " + new String(out);
+        return new String(out);
     }
 }

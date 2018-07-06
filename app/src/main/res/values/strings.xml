@@ -34,6 +34,9 @@
     <string name="btn_resumesport">繼續運動</string>
     <string name="btn_oversport">結束運動</string>
 
+    <string name="btn_battery">顯示電池電量</string>
+    <string name="btn_version">顯示目前版本</string>
+
     <string name="data_load">資料讀取中...</string>
     <string name="data_steps">步數：</string>
 </resources>

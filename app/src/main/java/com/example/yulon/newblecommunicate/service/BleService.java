@@ -27,9 +27,11 @@ import com.example.yulon.newblecommunicate.MainActivity;
 import com.example.yulon.newblecommunicate.adapter.ListViewAdspter;
 import com.example.yulon.newblecommunicate.bleutils.callback.ScanCallback;
 import com.example.yulon.newblecommunicate.command.Command;
+import com.example.yulon.newblecommunicate.model.StepParser;
 import com.example.yulon.newblecommunicate.utils.HexUtil;
 import com.example.yulon.newblecommunicate.utils.ParserUtils;
 
+import java.lang.reflect.Array;
 import java.text.Format;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -107,6 +109,9 @@ public class BleService extends Service{
 
     private Map<String, BluetoothGattCharacteristic> mWriteCharacteristicMap = new HashMap<>();
 
+    // 電池：42-61-74-74-3A-32-37-30-39
+    // 版本：56-4E-3A-30-32-30-34-30-30-30-36
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -116,7 +121,10 @@ public class BleService extends Service{
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
 //            Log.e("notify", "onCharacteristicChanged: "+ HexUtil.bytesToHexString(characteristic.getValue()));
-            Log.e("notify", "onCharacteristicChanged: "+ characteristic.getUuid().toString());
+            Log.e("notify", "onCharacteristicChanged: "+ characteristic.getValue());
+            Log.e("notify", "onCharacteristicChanged: "+ ParserUtils.parse(characteristic));
+
+            dealCallDatas(gatt, characteristic);
 
 //            for(int i = 0; i < characteristic.getValue().length; i++){
 //                Log.d("byte轉十六進制字串符 - 1", String.valueOf(characteristic.getValue()[i]));
@@ -124,27 +132,27 @@ public class BleService extends Service{
 
             if (characteristic.getUuid().equals(UUID_NOTIFY)) {
 
-                ParserUtils.parse(characteristic.getValue());
-                Log.d(TAG, "Characteristic getValue: " + ParserUtils.parse(characteristic.getValue()));
-//                Log.d(TAG, "走路步數：" + characteristic.getValue()[1] + characteristic.getValue()[2] + characteristic.getValue()[3]);
-
-                int iSteps_thousand = HexUtil.toInt(new byte[]{characteristic.getValue()[1]}) * 1000;
-                int iSteps_hundred =  HexUtil.toInt(new byte[]{characteristic.getValue()[2]}) * 100;
-
-                Log.d(TAG, "走路步數_千步：" + iSteps_thousand);
-                Log.d(TAG, "走路步數_百步：" + iSteps_hundred);
-                Log.d(TAG, "走路步數：" + HexUtil.toInt(new byte[]{characteristic.getValue()[3]}));
-
-                int itotal_Steps = iSteps_thousand + iSteps_hundred + HexUtil.toInt(new byte[]{characteristic.getValue()[3]});
-
-                if(i_OriginalSteps != itotal_Steps){
-                    sendMessageToUI(String.valueOf(itotal_Steps - i_OriginalSteps));
-                    Log.d(TAG, "走路步數變化：" + String.valueOf(itotal_Steps - i_OriginalSteps));
-                    i_OriginalSteps = itotal_Steps;
-                }else{
-                    sendMessageToUI("0");
-                    Log.d(TAG, "走路步數沒有變化" );
-                }
+//                ParserUtils.parse(characteristic.getValue());
+////                Log.d(TAG, "Characteristic getValue: " + ParserUtils.parse(characteristic.getValue()));
+//////                Log.d(TAG, "走路步數：" + characteristic.getValue()[1] + characteristic.getValue()[2] + characteristic.getValue()[3]);
+////
+////                int iSteps_thousand = HexUtil.toInt(new byte[]{characteristic.getValue()[1]}) * (int)Math.pow(250, 2);
+////                int iSteps_hundred =  HexUtil.toInt(new byte[]{characteristic.getValue()[2]}) * 250;
+////
+////                Log.d(TAG, "走路步數_千步：" + iSteps_thousand);
+////                Log.d(TAG, "走路步數_百步：" + iSteps_hundred);
+////                Log.d(TAG, "走路步數：" + HexUtil.toInt(new byte[]{characteristic.getValue()[3]}));
+////
+////                int itotal_Steps = iSteps_thousand + iSteps_hundred + HexUtil.toInt(new byte[]{characteristic.getValue()[3]});
+////
+////                if(i_OriginalSteps != itotal_Steps){
+////                    sendMessageToUI(String.valueOf(itotal_Steps - i_OriginalSteps));
+////                    Log.d(TAG, "走路步數變化：" + String.valueOf(itotal_Steps - i_OriginalSteps));
+////                    i_OriginalSteps = itotal_Steps;
+////                }else{
+////                    sendMessageToUI("0");
+////                    Log.d(TAG, "走路步數沒有變化" );
+////                }
 
 //                sendMessageToUI(String.valueOf((int)(characteristic.getValue()[1] + characteristic.getValue()[2] + characteristic.getValue()[3])));
 
@@ -517,6 +525,40 @@ public class BleService extends Service{
         Integer upperByte = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, offset + 1);
 
         return (upperByte << 8) + lowerByte;
+    }
+
+    float[][] flaots = new float[7][30];
+
+    private void dealCallDatas (BluetoothGatt gatt, BluetoothGattCharacteristic characteristic){
+        //感測器數據
+        byte[] value = characteristic.getValue();
+
+        if(value[0] == 0x42){
+            Log.e(TAG,"獲取電池電量。");
+            int format = BluetoothGattCharacteristic.FORMAT_UINT8;
+//            final int battery_level = characteristic.getIntValue(format, 0);
+            Log.d(TAG, "目前的電池電壓：" + Long.toString(characteristic.getValue()[0]) + "%");
+        }else if(value[0] == 0x56){
+            Log.e(TAG,"獲取裝置目前版本。");
+            Log.d(TAG, "目前的裝置版本：" + characteristic.getStringValue(0));
+        }else{
+            String data = HexUtil.bytes2HexString(characteristic.getValue());
+            String count = data.substring(2,8);
+            int stepCount = Integer.parseInt(count, 16);
+            int itotal_Steps = stepCount;
+
+            if(i_OriginalSteps != itotal_Steps){
+                    sendMessageToUI(String.valueOf(itotal_Steps - i_OriginalSteps));
+                    Log.d(TAG, "走路步數變化：" + String.valueOf(itotal_Steps - i_OriginalSteps));
+                    i_OriginalSteps = itotal_Steps;
+                }else{
+                    sendMessageToUI("0");
+                    Log.d(TAG, "走路步數沒有變化" );
+                }
+
+            Log.e(TAG,"獲取裝置目前步數。");
+            Log.d(TAG, "目前鞋墊步數：" + stepCount);
+        }
     }
 
 

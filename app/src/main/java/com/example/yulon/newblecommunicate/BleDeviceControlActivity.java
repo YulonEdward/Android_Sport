@@ -49,7 +49,8 @@ public class BleDeviceControlActivity extends AppCompatActivity {
     private static final byte[] STOP_ENABLE_SENSOR = {0x45, 0x50};
     private static final byte[] RESUME_ENABLE_SENSOR = {0x45, 0x52};
     private static final byte[] OVER_ENABLE_SENSOR = {0x45, 0x54};
-
+    private static final byte[] BATTERY_ENABLE_SENSOR = {0x42, 0x47};
+    private static final byte[] VERSION_ENABLE_SENSOR = {0x56, 0x4E};
     /**
      * Code used in requesting runtime permissions.
      */
@@ -70,7 +71,7 @@ public class BleDeviceControlActivity extends AppCompatActivity {
     LocalBroadcastManager mLocalBroadcastManager, Ble_mLocalBroadcastManager;
     BroadcastReceiver mReceiver, Ble_mReceiver;
     IntentFilter filter, BleService_filter;
-    Button btn_Start, btn_Stop, btn_Resume, btn_Over;
+    Button btn_Start, btn_Stop, btn_Resume, btn_Over, btn_Battery, btn_Version;
 
     private FirebaseService mFirebaseService = null;
     private BleService mBleService = null;
@@ -140,6 +141,7 @@ public class BleDeviceControlActivity extends AppCompatActivity {
         bindService(intent, mServiceConnection, BIND_AUTO_CREATE);
         Intent it = new Intent(this, BleService.class);
         bindService(it, mBleServiceConnection, BIND_AUTO_CREATE); //綁定Service
+        startService(intent);
 
         mReceiver = new BroadcastReceiver() {
             @Override
@@ -205,6 +207,15 @@ public class BleDeviceControlActivity extends AppCompatActivity {
 //                Toast.makeText(BleDeviceControlActivity.this, getString(R.string.msg_location_service_started) + "\n Steps : " + str_Steps + "\n Time: " + sdf.format(dt), Toast.LENGTH_SHORT).show();
 //            }
 //        }
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd");
+        //取得現在時間
+        Date dt=new Date();
+
+        if(mFirebaseService != null && mDeviceAddress != null) {
+            String str_DataSteps = mFirebaseService.Firebase_GetStepsData(mDeviceAddress, sdf.format(dt));
+            txtDataSteps.setText(str_DataSteps);
+        }
 
     }
 
@@ -328,38 +339,67 @@ public class BleDeviceControlActivity extends AppCompatActivity {
         btn_Stop = (Button)findViewById(R.id.btn_stopsport);
         btn_Resume = (Button)findViewById(R.id.btn_resumesport);
         btn_Over = (Button)findViewById(R.id.btn_oversport);
+        btn_Battery = (Button)findViewById(R.id.btn_battery);
+        btn_Version = (Button)findViewById(R.id.btn_version);
 
         btn_Start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mBleService.wirteCharacteristic(mDeviceAddress, START_ENABLE_SENSOR);
+                if(bConnected){
+                    mBleService.wirteCharacteristic(mDeviceAddress, START_ENABLE_SENSOR);
+                }
             }
         });
 
         btn_Stop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mBleService.wirteCharacteristic(mDeviceAddress, STOP_ENABLE_SENSOR);
+                if(bConnected){
+                    mBleService.wirteCharacteristic(mDeviceAddress, STOP_ENABLE_SENSOR);
+                }
             }
         });
 
         btn_Resume.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mBleService.wirteCharacteristic(mDeviceAddress, RESUME_ENABLE_SENSOR);
+                if(bConnected){
+                    mBleService.wirteCharacteristic(mDeviceAddress, RESUME_ENABLE_SENSOR);
+                }
             }
         });
 
         btn_Over.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mBleService.wirteCharacteristic(mDeviceAddress, OVER_ENABLE_SENSOR);
+                if(bConnected){
+                    mBleService.wirteCharacteristic(mDeviceAddress, OVER_ENABLE_SENSOR);
+                }
+            }
+        });
+
+        btn_Battery.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(bConnected){
+                    mBleService.wirteCharacteristic(mDeviceAddress, BATTERY_ENABLE_SENSOR);
+                }
+            }
+        });
+
+        btn_Version.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(bConnected){
+                    mBleService.wirteCharacteristic(mDeviceAddress, VERSION_ENABLE_SENSOR);
+                }
             }
         });
 
         final Intent intent = getIntent();
         mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
         txtDeviceAdrress.setText(mDeviceAddress);
+
     }
 
     private void updateConnectionState(final int resourceId){
@@ -507,6 +547,11 @@ public class BleDeviceControlActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+
+        if(bConnected){
+            mBleService.wirteCharacteristic(mDeviceAddress, OVER_ENABLE_SENSOR);
+        }
+
        // mLocalBroadcastManager.unregisterReceiver(mReceiver);
         mFirebaseService = null;
         unbindService(mServiceConnection); //解除綁定Service

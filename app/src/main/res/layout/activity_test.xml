@@ -61,6 +61,21 @@
                 />
         </LinearLayout>
 
+        <Button
+            android:id="@+id/btn_battery"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_battery"
+            tools:layout_editor_absoluteX="16dp"
+            tools:layout_editor_absoluteY="130dp" />
+
+        <Button
+            android:id="@+id/btn_version"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_version"
+            tools:layout_editor_absoluteX="16dp"
+            tools:layout_editor_absoluteY="130dp" />
 
         <Button
             android:id="@+id/btn_startsport"
