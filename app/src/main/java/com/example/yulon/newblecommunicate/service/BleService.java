@@ -12,31 +12,20 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
-import android.net.sip.SipErrorCode;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
-import android.os.Message;
-import android.os.Messenger;
-import android.os.RemoteException;
-import android.os.SystemClock;
+import android.os.Looper;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import android.widget.Toast;
 
-import com.example.yulon.newblecommunicate.MainActivity;
-import com.example.yulon.newblecommunicate.adapter.ListViewAdspter;
-import com.example.yulon.newblecommunicate.bleutils.callback.ScanCallback;
-import com.example.yulon.newblecommunicate.command.Command;
-import com.example.yulon.newblecommunicate.model.StepParser;
 import com.example.yulon.newblecommunicate.utils.HexUtil;
 import com.example.yulon.newblecommunicate.utils.ParserUtils;
 
-import java.lang.reflect.Array;
-import java.text.Format;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -57,6 +46,9 @@ public class BleService extends Service{
 
     public static final String ACTION_BLESERVICE_BROADCAST = GPSService.class.getName() + "BleServiceBroadcast";
     public static final String EXTRA_STEPS = "extra_steps";
+    public static final String EXTRA_DELTASTEPS = "extra_deltasteps";
+    public static final String EXTRA_BATTERY = "extra_battery";
+    public static final String EXTRA_VERSION = "extra_version";
 
     private static final Queue<Object> sWriteQueue = new ConcurrentLinkedQueue<Object>();
     private static boolean sIsWriting = false;
@@ -115,6 +107,11 @@ public class BleService extends Service{
     @Override
     public void onCreate() {
         super.onCreate();
+    }
+
+    public void myMethod()
+    {
+        Log.d(TAG, "myMethod()");
     }
 
     private BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
@@ -537,10 +534,14 @@ public class BleService extends Service{
             Log.e(TAG,"獲取電池電量。");
             int format = BluetoothGattCharacteristic.FORMAT_UINT8;
 //            final int battery_level = characteristic.getIntValue(format, 0);
-            Log.d(TAG, "目前的電池電壓：" + Long.toString(characteristic.getValue()[0]) + "%");
+//            String data = HexUtil.bytes2HexString(characteristic.getValue());
+//            final int battery_level = Integer.parseInt( data, 16);
+            Log.d(TAG, "目前的電池電壓：" +  characteristic.getStringValue(0));
+            Show_Battery("目前的電池電壓：" +  characteristic.getStringValue(0).substring(5,9) + " mV");
         }else if(value[0] == 0x56){
             Log.e(TAG,"獲取裝置目前版本。");
             Log.d(TAG, "目前的裝置版本：" + characteristic.getStringValue(0));
+            Show_Version(characteristic.getStringValue(0).substring(3,11));
         }else{
             String data = HexUtil.bytes2HexString(characteristic.getValue());
             String count = data.substring(2,8);
@@ -552,7 +553,7 @@ public class BleService extends Service{
                     Log.d(TAG, "走路步數變化：" + String.valueOf(itotal_Steps - i_OriginalSteps));
                     i_OriginalSteps = itotal_Steps;
                 }else{
-                    sendMessageToUI("0");
+                    sendMessageToUI(String.valueOf(itotal_Steps - i_OriginalSteps));
                     Log.d(TAG, "走路步數沒有變化" );
                 }
 
@@ -561,5 +562,31 @@ public class BleService extends Service{
         }
     }
 
+    private void Show_Battery(final String strBattery){
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(getApplicationContext(), strBattery, Toast.LENGTH_SHORT).show();
+            }
+        });
+//        Toast.makeText(getApplicationContext(), strBattery, Toast.LENGTH_SHORT).show();
+    }
+
+    private void Show_Version(final String strVersion){
+        Log.w(TAG, "字串內容 " + strVersion);
+        final String[] splitStr = strVersion.split("0");
+        for(String s : splitStr){
+            Log.w(TAG, "字串內容 " + s);
+        }
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(getApplicationContext(), "目前的裝置版本："+splitStr[1]+"."+splitStr[2]+"."+splitStr[5], Toast.LENGTH_SHORT).show();
+            }
+        });
+//        Toast.makeText(getApplicationContext(), strVersion, Toast.LENGTH_SHORT).show();
+    }
 
 }

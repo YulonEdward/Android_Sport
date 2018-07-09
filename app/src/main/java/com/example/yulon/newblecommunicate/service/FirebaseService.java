@@ -7,6 +7,7 @@ import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import com.example.yulon.newblecommunicate.BleDeviceControlActivity;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -89,6 +90,7 @@ public class FirebaseService extends Service {
             }
         });
 
+        Log.d(TAG, "part2 Value is: " + str_DataSteps[0]);
         return str_DataSteps[0];
     }
 }

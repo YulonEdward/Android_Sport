@@ -12,7 +12,9 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.provider.Settings;
 import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
@@ -61,6 +63,7 @@ public class BleDeviceControlActivity extends AppCompatActivity {
 
     private String mDeviceName;
     private String mDeviceAddress;
+    public static String str_initStepsData = null;
 
     private TextView txtDeviceName;
     private TextView txtDeviceAdrress;
@@ -76,6 +79,7 @@ public class BleDeviceControlActivity extends AppCompatActivity {
     private FirebaseService mFirebaseService = null;
     private BleService mBleService = null;
 
+
     private ServiceConnection mBleServiceConnection = new ServiceConnection()
     {
         @Override
@@ -83,6 +87,7 @@ public class BleDeviceControlActivity extends AppCompatActivity {
         {
             // TODO Auto-generated method stub
             mBleService = ((BleService.LocalBinder)serviceBinder).getService();
+
         }
 
         public void onServiceDisconnected(ComponentName name)
@@ -111,7 +116,15 @@ public class BleDeviceControlActivity extends AppCompatActivity {
             if(BleService.ACTION_GATT_CONNECTED.equals(action)){
                 bConnected = true;
                 updateConnectionState(R.string.connected);
-
+                final Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if(bConnected){
+                            mBleService.wirteCharacteristic(mDeviceAddress, START_ENABLE_SENSOR);
+                        }
+                    }
+                }, 5000);
             }else if(BleService.ACTION_GATT_DISCONNECTED.equals(action)){
                 bConnected = false;
                 updateConnectionState(R.string.disconnected);
@@ -136,12 +149,6 @@ public class BleDeviceControlActivity extends AppCompatActivity {
         mLocalBroadcastManager = LocalBroadcastManager.getInstance(this);
         filter = new IntentFilter();
         filter.addAction(GPSService.ACTION_LOCATION_BROADCAST);
-
-        Intent intent = new Intent(this, FirebaseService.class);
-        bindService(intent, mServiceConnection, BIND_AUTO_CREATE);
-        Intent it = new Intent(this, BleService.class);
-        bindService(it, mBleServiceConnection, BIND_AUTO_CREATE); //綁定Service
-        startService(intent);
 
         mReceiver = new BroadcastReceiver() {
             @Override
@@ -194,34 +201,15 @@ public class BleDeviceControlActivity extends AppCompatActivity {
 
         Ble_mLocalBroadcastManager.registerReceiver(Ble_mReceiver, BleService_filter);
 
-//        Bundle bundle = this.getIntent().getExtras();
-//
-//        SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd");
-//        //取得現在時間
-//        Date dt=new Date();
-//
-//        String str_Steps = bundle.getString("Steps");
-//        if(mFirebaseService != null && mDeviceAddress != null){
-//            if(str_Steps != null){
-//                mFirebaseService.Fire_deviceStepsData(mDeviceAddress, sdf.format(dt), str_Steps);
-//                Toast.makeText(BleDeviceControlActivity.this, getString(R.string.msg_location_service_started) + "\n Steps : " + str_Steps + "\n Time: " + sdf.format(dt), Toast.LENGTH_SHORT).show();
-//            }
-//        }
-
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd");
-        //取得現在時間
-        Date dt=new Date();
-
-        if(mFirebaseService != null && mDeviceAddress != null) {
-            String str_DataSteps = mFirebaseService.Firebase_GetStepsData(mDeviceAddress, sdf.format(dt));
-            txtDataSteps.setText(str_DataSteps);
-        }
-
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        Intent intent = new Intent(this, FirebaseService.class);
+        bindService(intent, mServiceConnection, BIND_AUTO_CREATE);
+        Intent it = new Intent(this, BleService.class);
+        bindService(it, mBleServiceConnection, BIND_AUTO_CREATE); //綁定Service
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
         startStep1();
     }
@@ -329,6 +317,13 @@ public class BleDeviceControlActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         unregisterReceiver(mGattUpdateReceiver);
+        // mLocalBroadcastManager.unregisterReceiver(mReceiver);
+        Ble_mLocalBroadcastManager.unregisterReceiver(Ble_mReceiver);
+        mBleService.disconnect();
+        mFirebaseService = null;
+        unbindService(mServiceConnection); //解除綁定Service
+        mBleService = null;
+        unbindService(mBleServiceConnection); //解除綁定Service
     }
 
     private void initView(){
@@ -341,6 +336,10 @@ public class BleDeviceControlActivity extends AppCompatActivity {
         btn_Over = (Button)findViewById(R.id.btn_oversport);
         btn_Battery = (Button)findViewById(R.id.btn_battery);
         btn_Version = (Button)findViewById(R.id.btn_version);
+
+        final Intent intent = getIntent();
+        mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
+        txtDeviceAdrress.setText(mDeviceAddress);
 
         btn_Start.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -396,11 +395,10 @@ public class BleDeviceControlActivity extends AppCompatActivity {
             }
         });
 
-        final Intent intent = getIntent();
-        mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
-        txtDeviceAdrress.setText(mDeviceAddress);
+
 
     }
+
 
     private void updateConnectionState(final int resourceId){
         runOnUiThread(new Runnable() {
@@ -544,20 +542,18 @@ public class BleDeviceControlActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+    }
 
     @Override
     protected void onDestroy() {
-
-        if(bConnected){
-            mBleService.wirteCharacteristic(mDeviceAddress, OVER_ENABLE_SENSOR);
-        }
-
-       // mLocalBroadcastManager.unregisterReceiver(mReceiver);
-        mFirebaseService = null;
-        unbindService(mServiceConnection); //解除綁定Service
-        mBleService = null;
-        unbindService(mBleServiceConnection); //解除綁定Service
         super.onDestroy();
+       // mLocalBroadcastManager.unregisterReceiver(mReceiver);
+        Ble_mLocalBroadcastManager.unregisterReceiver(Ble_mReceiver);
+
     }
 
 
@@ -571,14 +567,5 @@ public class BleDeviceControlActivity extends AppCompatActivity {
         return intentFilter;
     }
 
-    //播放音乐
-    public byte[] changeLevelInner(int play) {
-        byte[] data = new byte[Command.qppDataSend.length];
-        System.arraycopy(Command.qppDataSend, 0, data, 0, data.length);
-        data[6] = 0x03;
-        data[7] = (byte) play;
-        Log.e("data:" , Arrays.toString(data));
-        return data;
-    }
 
 }
