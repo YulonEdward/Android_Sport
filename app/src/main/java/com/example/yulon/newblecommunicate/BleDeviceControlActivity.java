@@ -12,6 +12,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -58,6 +59,7 @@ public class BleDeviceControlActivity extends AppCompatActivity {
      */
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 34;
 
+    private static int i_InitStepsData = 0;
 
     private boolean mAlreadyStartedService = false;
 
@@ -116,15 +118,18 @@ public class BleDeviceControlActivity extends AppCompatActivity {
             if(BleService.ACTION_GATT_CONNECTED.equals(action)){
                 bConnected = true;
                 updateConnectionState(R.string.connected);
-                final Handler handler = new Handler();
-                handler.postDelayed(new Runnable() {
+                new CountDownTimer(3000, 1000){
                     @Override
-                    public void run() {
-                        if(bConnected){
-                            mBleService.wirteCharacteristic(mDeviceAddress, START_ENABLE_SENSOR);
-                        }
+                    public void onTick(long millisUntilFinished) {
+                        Log.d(TAG, "seconds remaining: " + millisUntilFinished / 1000);
                     }
-                }, 5000);
+
+                    @Override
+                    public void onFinish() {
+                        mBleService.wirteCharacteristic(mDeviceAddress, START_ENABLE_SENSOR);
+                    }
+                }.start();
+
             }else if(BleService.ACTION_GATT_DISCONNECTED.equals(action)){
                 bConnected = false;
                 updateConnectionState(R.string.disconnected);
@@ -242,7 +247,6 @@ public class BleDeviceControlActivity extends AppCompatActivity {
             promptInternetConnect();
             return false;
         }
-
 
         if (dialog != null) {
             dialog.dismiss();
@@ -394,8 +398,6 @@ public class BleDeviceControlActivity extends AppCompatActivity {
                 }
             }
         });
-
-
 
     }
 

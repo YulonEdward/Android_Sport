@@ -46,9 +46,6 @@ public class BleService extends Service{
 
     public static final String ACTION_BLESERVICE_BROADCAST = GPSService.class.getName() + "BleServiceBroadcast";
     public static final String EXTRA_STEPS = "extra_steps";
-    public static final String EXTRA_DELTASTEPS = "extra_deltasteps";
-    public static final String EXTRA_BATTERY = "extra_battery";
-    public static final String EXTRA_VERSION = "extra_version";
 
     private static final Queue<Object> sWriteQueue = new ConcurrentLinkedQueue<Object>();
     private static boolean sIsWriting = false;
@@ -192,8 +189,7 @@ public class BleService extends Service{
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             Log.e("notify", "onDescriptorWrite: "+ HexUtil.bytesToHexString(descriptor.getValue()));
             Log.e("notify", "onDescriptorWriteStatus: "+ status);
-//            sIsWriting = false;
-//            nextWrite();
+
             super.onDescriptorWrite(gatt, descriptor, status);
         }
 
@@ -419,37 +415,6 @@ public class BleService extends Service{
         sendBroadcast(intent);
     }
 
-    public void subscribe(BluetoothGatt gatt) {
-        BluetoothGattService PoodonService = gatt.getService(UUID_SERVICE);
-        if (PoodonService != null) {
-            BluetoothGattCharacteristic PoodonCharacteristic1 = PoodonService.getCharacteristic(UUID_NOTIFY);
-            BluetoothGattCharacteristic PoodonCharacteristic2 = PoodonService.getCharacteristic(UUID_WRITE);
-            if(PoodonCharacteristic1!= null && PoodonCharacteristic2!= null){
-                BluetoothGattDescriptor config = PoodonCharacteristic1.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-                if(config!=null){
-                    gatt.setCharacteristicNotification(PoodonCharacteristic1, true);
-                    config.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                    write(config);
-                    PoodonCharacteristic2.setValue(ENABLE_SENSOR);
-                    write(PoodonCharacteristic2);
-                }
-            }
-        }
-    }
-
-    public void writeCharacteristic(){
-        BluetoothGattService PoodonService = mGatt.getService(UUID_SERVICE);
-        if (PoodonService != null) {
-            BluetoothGattCharacteristic PoodonCharacteristic1 = PoodonService.getCharacteristic(UUID_NOTIFY);
-            BluetoothGattCharacteristic PoodonCharacteristic2 = PoodonService.getCharacteristic(UUID_WRITE);
-            if(PoodonCharacteristic2!= null){
-                PoodonCharacteristic2.setValue(ENABLE_SENSOR);
-                mGatt.writeCharacteristic(PoodonCharacteristic2);
-                Log.e("BTN Test: ", String.valueOf(mGatt.writeCharacteristic(PoodonCharacteristic2)));
-            }
-        }
-    }
-
     public boolean wirteCharacteristic(String address, byte[] value){
 
         Log.e("GGGGGGG", String.valueOf(value));
@@ -476,36 +441,6 @@ public class BleService extends Service{
             }
         }
         return false;
-    }
-
-    private synchronized void write(Object o) {
-        if (sWriteQueue.isEmpty() && !sIsWriting) {
-            doWrite(o);
-        } else {
-            sWriteQueue.add(o);
-        }
-    }
-
-    private synchronized void nextWrite() {
-        if (!sWriteQueue.isEmpty() && !sIsWriting) {
-            Log.e("sWriteQueue : ", String.valueOf(sWriteQueue.poll()));
-            doWrite(sWriteQueue.poll());
-        }
-    }
-
-    private synchronized void doWrite(Object o) {
-
-        if (o instanceof BluetoothGattCharacteristic) {
-            Log.e("o1 is  : ", String.valueOf(o));
-            sIsWriting = true;
-            mGatt.writeCharacteristic((BluetoothGattCharacteristic) o);
-        } else if (o instanceof BluetoothGattDescriptor) {
-            Log.e("o2 is  : ", String.valueOf(o));
-            sIsWriting = true;
-            mGatt.writeDescriptor((BluetoothGattDescriptor) o);
-        } else {
-            nextWrite();
-        }
     }
 
     private void sendMessageToUI(String steps) {
@@ -548,14 +483,21 @@ public class BleService extends Service{
             int stepCount = Integer.parseInt(count, 16);
             int itotal_Steps = stepCount;
 
-            if(i_OriginalSteps != itotal_Steps){
+            if(!sIsWriting){
+                sendMessageToUI(String.valueOf(stepCount));
+                Log.d(TAG, "Part1 目前鞋墊步數：" + stepCount);
+                sIsWriting = true;
+            }else{
+                if(i_OriginalSteps != itotal_Steps){
                     sendMessageToUI(String.valueOf(itotal_Steps - i_OriginalSteps));
                     Log.d(TAG, "走路步數變化：" + String.valueOf(itotal_Steps - i_OriginalSteps));
-                    i_OriginalSteps = itotal_Steps;
                 }else{
                     sendMessageToUI(String.valueOf(itotal_Steps - i_OriginalSteps));
                     Log.d(TAG, "走路步數沒有變化" );
                 }
+            }
+
+            i_OriginalSteps = itotal_Steps;
 
             Log.e(TAG,"獲取裝置目前步數。");
             Log.d(TAG, "目前鞋墊步數：" + stepCount);
